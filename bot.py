@@ -1,62 +1,54 @@
 from aiogram import Bot, Dispatcher, types
+from aiogram.filters import Command
 from aiogram.types import Message
-import asyncio
-import config
-import database
+from aiogram.enums import ParseMode
+from dotenv import load_dotenv
+from database import create_tables, register_user
+import os
 
-bot = Bot(token=config.BOT_TOKEN)
+load_dotenv()
+
+bot = Bot(token=os.getenv("BOT_TOKEN"))
 dp = Dispatcher()
 
-@dp.message()
-async def start_command(message: Message):
-    if message.text == "/start":
-        user_id = message.from_user.id
-        name = message.from_user.full_name
 
-        conn = await database.connect_db()
-        await conn.execute(
-            "INSERT INTO users (telegram_id, name) VALUES ($1, $2) ON CONFLICT (telegram_id) DO NOTHING",
-            user_id, name
-        )
-        await conn.close()
+@dp.message(Command("start"))
+async def cmd_start(message: Message):
+    # Регистрация пользователя
+    user_id = message.from_user.id
+    username = message.from_user.username
+    first_name = message.from_user.first_name
+    last_name = message.from_user.last_name
 
-        await message.answer(f"Привет, {name}! Я помогу тебе отслеживать финансы.")
+    await register_user(user_id, username, first_name, last_name)
+
+    # Ответ пользователю
+    await message.answer(
+        "Привет! Я твой финансовый трекер. Используй команду /add_expense чтобы добавить расход."
+    )
+
+
+@dp.message(Command("add_expense"))
+async def cmd_add_expense(message: Message):
+    args = message.text.split()
+    if len(args) < 3:
+        await message.answer("Использование: /add_expense <сумма> <описание>")
+        return
+    try:
+        amount = float(args[1])
+        description = " ".join(args[2:])
+        await add_expense(message.from_user.id, amount, description)
+        await message.answer(f"Расход добавлен: {amount} руб. на {description}")
+    except ValueError:
+        await message.answer("Неверный формат суммы. Убедитесь, что сумма - это число.")
+
 
 async def main():
-    await database.create_tables()  # Создаем таблицы перед запуском бота
-    await bot.delete_webhook(drop_pending_updates=True)
+    await create_tables()
     await dp.start_polling(bot)
 
 
-
-@dp.message()
-async def add_expense(message: Message):
-    if message.text.startswith("/add_expense"):
-        try:
-            _, amount, category = message.text.split(maxsplit=2)
-            amount = float(amount)
-        except ValueError:
-            await message.answer("Использование: /add_expense сумма категория")
-            return
-
-        conn = await database.connect_db()
-        user_id = message.from_user.id
-
-        # Проверяем, есть ли категория
-        category_id = await conn.fetchval("SELECT id FROM categories WHERE name=$1 AND user_id=$2", category, user_id)
-        if not category_id:
-            category_id = await conn.fetchval(
-                "INSERT INTO categories (name, user_id) VALUES ($1, $2) RETURNING id", category, user_id
-            )
-
-        # Добавляем транзакцию
-        await conn.execute(
-            "INSERT INTO transactions (user_id, category_id, amount) VALUES ($1, $2, $3)",
-            user_id, category_id, amount
-        )
-        await conn.close()
-
-        await message.answer(f"✅ Записано: {amount} ₽ в категорию «{category}».")
-
 if __name__ == "__main__":
+    import asyncio
+
     asyncio.run(main())
