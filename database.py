@@ -13,14 +13,51 @@ async def create_tables():
     conn = await create_connection()
     await conn.execute(
         """
+        CREATE TABLE IF NOT EXISTS users (
+            user_id BIGINT PRIMARY KEY,
+            username TEXT,
+            first_name TEXT,
+            last_name TEXT,
+            registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    await conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS transactions (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            type TEXT,
+            amount NUMERIC NOT NULL,
+            category_name TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    await conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS expenses (
             id SERIAL PRIMARY KEY,
             user_id BIGINT NOT NULL,
             amount NUMERIC NOT NULL,
-            description TEXT,
+            category_name TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """
+    )
+
+    await conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS incomes (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            amount NUMERIC NOT NULL,
+            category_name TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
     )
     await conn.close()
 
@@ -41,15 +78,92 @@ async def register_user(user_id: int, username: str, first_name: str, last_name:
     await conn.close()
 
 
-async def add_expense(user_id, amount, description):
+async def add_expense(user_id, amount, category_name):
     conn = await create_connection()
-    await conn.execute(
-        """
-        INSERT INTO expenses (user_id, amount, description)
-        VALUES ($1, $2, $3)
-    """,
-        user_id,
-        amount,
-        description,
-    )
+    async with conn.transaction():
+        await conn.execute(
+            """
+            INSERT INTO expenses (user_id, amount, category_name)
+            VALUES ($1, $2, $3)
+            """,
+            user_id,
+            amount,
+            category_name,
+        )
+
+        await conn.execute(
+            """
+            INSERT INTO transactions (user_id, type, amount, category_name)
+            VALUES ($1, 'Expense', $2, $3)
+            """,
+            user_id,
+            amount,
+            category_name,
+        )
     await conn.close()
+
+
+async def add_income(user_id, amount, category_name):
+    conn = await create_connection()
+    async with conn.transaction():
+        await conn.execute(
+            """
+            INSERT INTO incomes (user_id, amount, category_name)
+            VALUES ($1, $2, $3)         
+    """,
+            user_id,
+            amount,
+            category_name,
+        )
+        await conn.execute(
+            """
+            INSERT INTO transactions (user_id, type, amount, category_name)
+            VALUES ($1, 'Income', $2, $3)
+            """,
+            user_id,
+            amount,
+            category_name,
+        )
+    await conn.close()
+
+
+async def delete_last_transaction(user_id: int):
+    """Удаляет последнюю транзакцию пользователя."""
+    conn = await create_connection()
+    try:
+        row = await conn.fetchrow(
+            """
+            DELETE FROM transactions 
+            WHERE id = (
+                SELECT id FROM transactions 
+                WHERE user_id = $1
+                ORDER BY created_at DESC 
+                LIMIT 1
+            )
+            RETURNING id, type, amount, category_name, created_at
+            """,
+            user_id,
+        )
+        # return f"Удалена транзакция: {row['type']} на {row['amount']} руб. ({row['category_name']}) от {row['created_at'].strftime("%Y-%m-%d %H:%M:%S")}"
+        return row
+    finally:
+        await conn.close()
+
+
+async def get_last_transaction(user_id: int):
+    """Удаляет последнюю транзакцию пользователя."""
+    conn = await create_connection()
+    try:
+        row = await conn.fetchrow(
+            """
+            SELECT id, type, amount, category_name, created_at FROM transactions 
+            WHERE user_id = $1
+            ORDER BY created_at DESC 
+            LIMIT 1
+            """,
+            user_id,
+        )
+        # return f"Вы точно хотите удалить: {row['type']} на {row['amount']} руб. ({row['category_name']}) от {row['created_at'].strftime("%Y-%m-%d %H:%M:%S")}?"
+        return row
+    finally:
+        await conn.close()
