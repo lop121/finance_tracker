@@ -144,26 +144,25 @@ async def delete_last_transaction(user_id: int):
             """,
             user_id,
         )
-        # return f"Удалена транзакция: {row['type']} на {row['amount']} руб. ({row['category_name']}) от {row['created_at'].strftime("%Y-%m-%d %H:%M:%S")}"
         return row
     finally:
         await conn.close()
 
 
-async def get_last_transaction(user_id: int):
+async def get_last_transaction(user_id: int, limit: int = 5):
     """Удаляет последнюю транзакцию пользователя."""
     conn = await create_connection()
     try:
-        row = await conn.fetchrow(
+        row = await conn.fetch(
             """
             SELECT id, type, amount, category_name, created_at FROM transactions 
             WHERE user_id = $1
             ORDER BY created_at DESC 
-            LIMIT 1
+            LIMIT $2
             """,
             user_id,
+            limit,
         )
-        # return f"Вы точно хотите удалить: {row['type']} на {row['amount']} руб. ({row['category_name']}) от {row['created_at'].strftime("%Y-%m-%d %H:%M:%S")}?"
         return row
     finally:
         await conn.close()

@@ -3,6 +3,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message
 from database import delete_last_transaction
+from keyboard import get_main_menu_keyboard
 
 
 class DeleteTransactionState(StatesGroup):
@@ -11,9 +12,9 @@ class DeleteTransactionState(StatesGroup):
 
 async def process_confirmation(message: Message, state: FSMContext):
     """Обрабатывает ответ пользователя (Да/Нет) на удаление транзакции."""
-    user_reply = message.text.strip().lower()
+    user_reply = message.text.strip()
     # Если ответ "Да"
-    if user_reply == "да":
+    if user_reply == "Да✅":
         # Получаем данные последней транзакции из состояния
         data = await state.get_data()
         row = data.get("last_transaction")
@@ -24,7 +25,8 @@ async def process_confirmation(message: Message, state: FSMContext):
 
             if result:
                 await message.answer(
-                    f"Транзакция удалена: {result['category_name']} на {result['amount']} руб. ({result['created_at'].strftime('%Y-%m-%d %H:%M:%S')})"
+                    f"Транзакция удалена: {result['category_name']} на {result['amount']} руб. ({result['created_at'].strftime('%Y-%m-%d %H:%M:%S')})",
+                    reply_markup=get_main_menu_keyboard(),
                 )
             else:
                 await message.answer("Ошибка: транзакция уже удалена или отсутствует.")
@@ -32,11 +34,16 @@ async def process_confirmation(message: Message, state: FSMContext):
             await message.answer("Ошибка: не удалось получить последнюю транзакцию.")
 
     # Если ответ "Нет"
-    elif user_reply == "нет":
-        await message.answer("Вы отменили удаление последней транзакции.")
+    elif user_reply == "Нет❌":
+        await message.answer(
+            "Вы отменили удаление последней транзакции.",
+            reply_markup=get_main_menu_keyboard(),
+        )
 
     else:
         await message.answer("Пожалуйста, ответьте 'Да' или 'Нет'.")
+        await state.set_state(DeleteTransactionState.waiting_for_confirmation)
+        return
 
     # Очистка состояния
     await state.clear()
