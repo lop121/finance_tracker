@@ -1,4 +1,9 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import (
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+)
 
 
 def get_main_menu_keyboard():
@@ -9,7 +14,12 @@ def get_main_menu_keyboard():
                 KeyboardButton(text="💰 Добавить доход"),
             ],
             [KeyboardButton(text="🗑 Удалить последнюю транзакцию")],
-            [KeyboardButton(text="📜 История транзакций")],
+            [
+                KeyboardButton(text="📜 История транзакций"),
+                KeyboardButton(text="📈 График"),
+            ],
+            [KeyboardButton(text="💸 Статистика"), KeyboardButton(text="📊 Отчет")],
+            [KeyboardButton(text="⚖️ Баланс")],
         ],
         resize_keyboard=True,
     )
@@ -32,3 +42,39 @@ def get_confirm_keyboard():
         one_time_keyboard=True,
     )
     return confirm_keyboard
+
+
+def get_report_keyboard():
+    # Создаем массив кнопок
+    buttons = [
+        [
+            InlineKeyboardButton(text="📆 Неделя", callback_data="report_week"),
+            InlineKeyboardButton(text="🗓️ Месяц", callback_data="report_month"),
+        ]
+    ]
+
+    # Передаем массив кнопок в конструктор клавиатуры
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+    return keyboard
+
+
+def get_income_expense_keyboard():
+    buttons = [
+        [
+            InlineKeyboardButton(text="💰 Доходы", callback_data="Income"),
+            InlineKeyboardButton(text="💸 Расходы", callback_data="Expense"),
+        ]
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+    return keyboard
+
+
+def get_time_period_keyboard():
+    buttons = [
+        [
+            InlineKeyboardButton(text="📆 Неделя", callback_data="week"),
+            InlineKeyboardButton(text="🗓️ Месяц", callback_data="month"),
+        ]
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+    return keyboard

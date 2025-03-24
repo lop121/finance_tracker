@@ -1,6 +1,12 @@
 import os
+import tempfile
 import asyncpg
 from dotenv import load_dotenv
+from aiogram.types import (
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+)
+import matplotlib.pyplot as plt
 
 load_dotenv()
 
@@ -164,5 +170,120 @@ async def get_last_transaction(user_id: int, limit: int = 5):
             limit,
         )
         return row
+    finally:
+        await conn.close()
+
+
+async def get_user_balance(user_id: int):
+
+    # SQL-запрос для расчета баланса
+    conn = await create_connection()  # создаем подключение к БД
+    try:
+        balance_row = await conn.fetchrow(
+            """
+            SELECT 
+                COALESCE(SUM(CASE WHEN type = 'Income' THEN amount ELSE 0 END), 0) AS total_income,
+                COALESCE(SUM(CASE WHEN type = 'Expense' THEN amount ELSE 0 END), 0) AS total_expense
+            FROM transactions
+            WHERE user_id = $1
+            """,
+            user_id,
+        )
+        total_income = balance_row["total_income"]
+        total_expense = balance_row["total_expense"]
+        balance = total_income - total_expense
+
+        return total_income, total_expense, balance
+    finally:
+        await conn.close()  # Закрываем подключение к БД
+
+
+async def get_report_data(user_id: int, type_: str, category: str, days: int):
+    """
+    Fetch report data for a given user, type, and category within the last `days` days.
+
+    Args:
+        user_id (int): User ID
+        type_ (str): Type of transaction (e.g., 'income' or 'expense')
+        category (str): Transaction category name
+        days (int): Number of days to filter
+
+    Returns:
+        List of rows containing type, category_name, and total_amount
+    """
+    conn = await create_connection()
+
+    try:
+        query = """
+            SELECT type, category_name, SUM(amount) AS total_amount
+            FROM transactions
+            WHERE user_id = $1 
+            AND type = $2 
+            AND category_name = $3 
+            AND created_at >= NOW() - $4 * INTERVAL '1 day'
+            GROUP BY type, category_name
+        """
+        # Execute the query with the correct parameters
+        rows = await conn.fetch(query, user_id, type_, category, days)
+        return rows
+    finally:
+        await conn.close()
+
+
+async def get_category_keyboard(user_id: int, type_: str):
+    # Создаем соединение с базой данных
+    conn = await create_connection()
+    query = "SELECT DISTINCT category_name FROM transactions WHERE user_id = $1 AND type = $2"
+    categories = await conn.fetch(query, user_id, type_)
+    await conn.close()
+
+    if not categories:
+        print("net c")
+    # Строим клавиатуру с кнопками для каждой категории
+    buttons = []
+    for category in categories:
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=category["category_name"],
+                    callback_data=f"{type_}_{category['category_name']}",
+                )
+            ]
+        )
+
+    # Создаем и возвращаем клавиатуру с кнопками
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+    return keyboard
+
+
+async def generate_expense_pie_chart(user_id: int) -> str:
+    conn = await create_connection()
+    try:
+        query = """
+            SELECT category_name, SUM(amount) AS total
+            FROM transactions
+            WHERE user_id = $1 AND type = 'Expense'
+            GROUP BY category_name
+        """
+        rows = await conn.fetch(query, user_id)
+        if not rows:
+            return None
+
+        # Формируем данные для графика: метки и размеры
+        data = {row["category_name"]: float(row["total"]) for row in rows}
+        labels = list(data.keys())
+        sizes = list(data.values())
+
+        # Построение круговой диаграммы
+        fig, ax = plt.subplots()
+        ax.pie(sizes, labels=labels, autopct="%1.1f%%", startangle=90)
+        ax.axis("equal")  # Диаграмма будет круглой
+
+        # Сохраняем график во временный файл
+        tmp_file = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        plt.savefig(tmp_file.name, dpi=100)
+        plt.close(fig)
+        return tmp_file.name
+
     finally:
         await conn.close()
