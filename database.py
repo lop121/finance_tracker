@@ -287,3 +287,17 @@ async def generate_expense_pie_chart(user_id: int) -> str:
 
     finally:
         await conn.close()
+
+
+async def get_users_without_transactions_today():
+    conn = await create_connection()
+    query = """
+        SELECT user_id FROM users
+        WHERE user_id NOT IN (
+            SELECT DISTINCT user_id
+            FROM transactions
+            WHERE DATE(created_at) = CURRENT_DATE
+        );
+    """
+    rows = await conn.fetch(query)
+    return [row["user_id"] for row in rows]
