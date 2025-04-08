@@ -86,6 +86,26 @@ async def register_user(user_id: int, username: str, first_name: str, last_name:
 
 async def add_expense(user_id, amount, category_name):
     conn = await create_connection()
+    user_exists = await conn.fetchval("SELECT 1 FROM users WHERE user_id = $1", user_id)
+    if not user_exists:
+        raise ValueError("Пользователь не существует")
+
+    # Проверка на пустые значения
+    if not amount or not category_name:
+        raise ValueError("Сумма и категория не могут быть пустыми")
+
+    # Проверка на отрицательные значения суммы
+    if amount <= 0:
+        raise ValueError("Сумма расхода должна быть положительной")
+
+    # Проверка на существование категории в базе
+    category_exists = await conn.fetchval(
+        "SELECT 1 FROM transactions WHERE user_id = $1 AND category_name = $2 LIMIT 1",
+        user_id,
+        category_name,
+    )
+    if not category_exists:
+        raise ValueError("Категория не существует для данного пользователя")
     async with conn.transaction():
         await conn.execute(
             """
@@ -111,6 +131,26 @@ async def add_expense(user_id, amount, category_name):
 
 async def add_income(user_id, amount, category_name):
     conn = await create_connection()
+    user_exists = await conn.fetchval("SELECT 1 FROM users WHERE user_id = $1", user_id)
+    if not user_exists:
+        raise ValueError("Пользователь не существует")
+
+    # Проверка на пустые значения
+    if not amount or not category_name:
+        raise ValueError("Сумма и категория не могут быть пустыми")
+
+    # Проверка на отрицательные значения суммы
+    if amount <= 0:
+        raise ValueError("Сумма дохода должна быть положительной")
+
+    # Проверка на существование категории в базе
+    category_exists = await conn.fetchval(
+        "SELECT 1 FROM transactions WHERE user_id = $1 AND category_name = $2 LIMIT 1",
+        user_id,
+        category_name,
+    )
+    if not category_exists:
+        raise ValueError("Категория не существует для данного пользователя")
     async with conn.transaction():
         await conn.execute(
             """
