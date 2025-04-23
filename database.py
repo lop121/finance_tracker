@@ -341,3 +341,21 @@ async def get_users_without_transactions_today():
     """
     rows = await conn.fetch(query)
     return [row["user_id"] for row in rows]
+
+
+async def get_overall_report(user_id: int, days: int):
+    conn = await create_connection()
+    try:
+        rows = await conn.fetch(
+            """
+            SELECT type, SUM(amount) AS total_amount
+            FROM transactions
+            WHERE user_id = $1
+              AND created_at >= NOW() - ($2 * INTERVAL '1 day')
+            GROUP BY type
+            """,
+            user_id, days
+        )
+        return rows
+    finally:
+        await conn.close()

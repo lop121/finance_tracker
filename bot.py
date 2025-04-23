@@ -14,6 +14,7 @@ from database import (
     get_last_transaction,
     get_user_balance,
     get_report_data,
+    get_overall_report,
     get_category_keyboard,
 )
 from waiting_confirmation import DeleteTransactionState, process_confirmation
@@ -199,7 +200,7 @@ async def cmd_report(message: Message):
 async def process_report(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     days = 7 if callback.data == "report_week" else 30
-    report_data = await get_report_data(user_id, type_="", category="", days=days)
+    report_data = await get_overall_report(user_id, days=days)
 
     if report_data:
         report_message = f"📊 Статистика за последние {days} дней:\n\n"
