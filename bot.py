@@ -7,7 +7,8 @@ from aiogram.fsm.state import StatesGroup, State
 from dotenv import load_dotenv
 from database import (
     create_tables,
-    generate_expense_pie_chart,
+    # generate_expense_pie_chart,
+    generate_pie_chart,
     register_user,
     add_expense,
     add_income,
@@ -19,6 +20,7 @@ from database import (
 )
 from waiting_confirmation import DeleteTransactionState, process_confirmation
 from keyboard import (
+    chart_type_keyboard,
     get_back_keyboard,
     get_confirm_keyboard,
     get_main_menu_keyboard,
@@ -298,19 +300,24 @@ async def process_time_period(callback: types.CallbackQuery, state: FSMContext):
 
 @dp.message(lambda message: message.text == "📈 График")
 async def cmd_chart(message: types.Message):
-    user_id = message.from_user.id
-    chart_file = await generate_expense_pie_chart(user_id)
+    await message.answer("Выберите тип графика:", reply_markup=chart_type_keyboard())
+
+@dp.callback_query(lambda callback: callback.data in ("chart_expense", "chart_income"))
+async def handle_chart_selection(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    txn_type = "Expense" if callback.data == "chart_expense" else "Income"
+
+    chart_file = await generate_pie_chart(user_id, txn_type)
 
     if not chart_file:
-        await message.answer("Нет данных для построения графика.")
+        await callback.message.answer("Нет данных для построения графика.")
         return
 
-    # Используем FSInputFile для отправки фото
     photo = FSInputFile(chart_file)
-    await message.answer_photo(photo)
-
-    # Удаляем временный файл после отправки
+    await callback.message.answer_photo(photo)
     os.remove(chart_file)
+
+    await callback.answer()  # Убираем “часики” после нажатия
 
 
 async def main():

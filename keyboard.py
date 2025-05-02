@@ -78,3 +78,12 @@ def get_time_period_keyboard():
     ]
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     return keyboard
+
+def chart_type_keyboard():
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="📉 Расходы", callback_data="chart_expense"),
+            InlineKeyboardButton(text="📈 Доходы", callback_data="chart_income"),
+        ]
+    ])
+    return keyboard

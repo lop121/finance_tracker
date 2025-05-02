@@ -296,30 +296,27 @@ async def get_category_keyboard(user_id: int, type_: str):
     return keyboard
 
 
-async def generate_expense_pie_chart(user_id: int) -> str:
+async def generate_pie_chart(user_id: int, txn_type: str) -> str:
     conn = await create_connection()
     try:
         query = """
             SELECT category_name, SUM(amount) AS total
             FROM transactions
-            WHERE user_id = $1 AND type = 'Expense'
+            WHERE user_id = $1 AND type = $2
             GROUP BY category_name
         """
-        rows = await conn.fetch(query, user_id)
+        rows = await conn.fetch(query, user_id, txn_type)
         if not rows:
             return None
 
-        # Формируем данные для графика: метки и размеры
         data = {row["category_name"]: float(row["total"]) for row in rows}
         labels = list(data.keys())
         sizes = list(data.values())
 
-        # Построение круговой диаграммы
         fig, ax = plt.subplots()
         ax.pie(sizes, labels=labels, autopct="%1.1f%%", startangle=90)
-        ax.axis("equal")  # Диаграмма будет круглой
+        ax.axis("equal")
 
-        # Сохраняем график во временный файл
         tmp_file = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
         plt.savefig(tmp_file.name, dpi=100)
         plt.close(fig)
