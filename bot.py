@@ -302,6 +302,7 @@ async def process_time_period(callback: types.CallbackQuery, state: FSMContext):
 async def cmd_chart(message: types.Message):
     await message.answer("Выберите тип графика:", reply_markup=chart_type_keyboard())
 
+
 @dp.callback_query(lambda callback: callback.data in ("chart_expense", "chart_income"))
 async def handle_chart_selection(callback: types.CallbackQuery):
     user_id = callback.from_user.id

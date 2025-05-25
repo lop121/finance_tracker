@@ -143,14 +143,6 @@ async def add_income(user_id, amount, category_name):
     if amount <= 0:
         raise ValueError("Сумма дохода должна быть положительной")
 
-    # Проверка на существование категории в базе
-    category_exists = await conn.fetchval(
-        "SELECT 1 FROM transactions WHERE user_id = $1 AND category_name = $2 LIMIT 1",
-        user_id,
-        category_name,
-    )
-    if not category_exists:
-        raise ValueError("Категория не существует для данного пользователя")
     async with conn.transaction():
         await conn.execute(
             """
@@ -351,7 +343,8 @@ async def get_overall_report(user_id: int, days: int):
               AND created_at >= NOW() - ($2 * INTERVAL '1 day')
             GROUP BY type
             """,
-            user_id, days
+            user_id,
+            days,
         )
         return rows
     finally:
